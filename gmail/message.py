@@ -130,7 +130,7 @@ class Message():
 
     def parse_subject(self, encoded_subject):
         dh = decode_header(encoded_subject)
-        return ''.join(t[0] for t in dh)
+        return ''.join(t[0].decode(t[1]) if isinstance(t[0], bytes) else t[0] for t in dh)
 
     def parse(self, raw_message):
         raw_headers = raw_message[0].decode()
@@ -167,11 +167,17 @@ class Message():
 
         
         # Parse attachments into attachment objects array for this message
-        self.attachments = [
-            Attachment(attachment) for attachment in self.message._payload
-                if not isinstance(attachment, str) and attachment.get('Content-Disposition') is not None
-        ]
-        
+        self.attachments = []
+        for attachment in self.message._payload:
+            if isinstance(attachment, str):
+                continue
+
+            if attachment.get('Content-Disposition') is not None:
+                self.attachments.append(Attachment(attachment))
+
+            for p in attachment._payload:
+                if not isinstance(p, str) and p.get('Content-Disposition') is not None:
+                    self.attachments.append(Attachment(p))
 
     def fetch(self):
         if not self.message:
